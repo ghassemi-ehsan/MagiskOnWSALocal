@@ -63,12 +63,12 @@ out = requests.post(
 
 doc = minidom.parseString(html.unescape(out.text))
 
-filenames = {}
-for node in doc.getElementsByTagName('Files'):
-    filenames[node.parentNode.parentNode.getElementsByTagName(
-        'ID')[0].firstChild.nodeValue] = f"{node.firstChild.attributes['InstallerSpecificIdentifier'].value}_{node.firstChild.attributes['FileName'].value}"
-    pass
-
+filenames = {
+    node.parentNode.parentNode.getElementsByTagName('ID')[
+        0
+    ].firstChild.nodeValue: f"{node.firstChild.attributes['InstallerSpecificIdentifier'].value}_{node.firstChild.attributes['FileName'].value}"
+    for node in doc.getElementsByTagName('Files')
+}
 identities = []
 for node in doc.getElementsByTagName('SecuredFragment'):
     filename = filenames[node.parentNode.parentNode.parentNode.getElementsByTagName('ID')[
@@ -82,33 +82,32 @@ with open(Path.cwd().parent / "xml/FE3FileUrl.xml", "r") as f:
 
 if not download_dir.is_dir():
     download_dir.mkdir()
-tmpdownlist = open(download_dir/tempScript, 'a')
-for i, v, f in identities:
-    if re.match(f"Microsoft\.UI\.Xaml\..*_{arch}_.*\.appx", f):
-        out_file_name = f"Microsoft.UI.Xaml_{arch}.appx"
-        out_file = download_dir / out_file_name
-    # elif re.match(f"Microsoft\.VCLibs\..+\.UWPDesktop_.*_{arch}_.*\.appx", f):
-    #     out_file_name = f"Microsoft.VCLibs.140.00.UWPDesktop_{arch}.appx"
-    #     out_file = download_dir / out_file_name
-    elif re.match(f"MicrosoftCorporationII\.WindowsSubsystemForAndroid_.*\.msixbundle", f):
-        out_file_name = f"wsa-{arch}-{release_type}.zip"
-        out_file = download_dir / out_file_name
-    else:
-        continue
-    out = requests.post(
-        'https://fe3.delivery.mp.microsoft.com/ClientWebService/client.asmx/secured',
-        data=file_content.format(i, v, release_type),
-        headers={'Content-Type': 'application/soap+xml; charset=utf-8'},
-        verify=False
-    )
-    doc = minidom.parseString(out.text)
-    for l in doc.getElementsByTagName("FileLocation"):
-        url = l.getElementsByTagName("Url")[0].firstChild.nodeValue
-        if len(url) != 99:
-            print(f"download link: {url} to {out_file}", flush=True)
-            tmpdownlist.writelines(url + '\n')
-            tmpdownlist.writelines(f'  dir={download_dir}\n')
-            tmpdownlist.writelines(f'  out={out_file_name}\n')
-tmpdownlist.writelines(f'https://aka.ms/Microsoft.VCLibs.{arch}.14.00.Desktop.appx\n')
-tmpdownlist.writelines(f'  dir={download_dir}\n')
-tmpdownlist.close()
+with open(download_dir/tempScript, 'a') as tmpdownlist:
+    for i, v, f in identities:
+        if re.match(f"Microsoft\.UI\.Xaml\..*_{arch}_.*\.appx", f):
+            out_file_name = f"Microsoft.UI.Xaml_{arch}.appx"
+            out_file = download_dir / out_file_name
+        # elif re.match(f"Microsoft\.VCLibs\..+\.UWPDesktop_.*_{arch}_.*\.appx", f):
+        #     out_file_name = f"Microsoft.VCLibs.140.00.UWPDesktop_{arch}.appx"
+        #     out_file = download_dir / out_file_name
+        elif re.match(f"MicrosoftCorporationII\.WindowsSubsystemForAndroid_.*\.msixbundle", f):
+            out_file_name = f"wsa-{arch}-{release_type}.zip"
+            out_file = download_dir / out_file_name
+        else:
+            continue
+        out = requests.post(
+            'https://fe3.delivery.mp.microsoft.com/ClientWebService/client.asmx/secured',
+            data=file_content.format(i, v, release_type),
+            headers={'Content-Type': 'application/soap+xml; charset=utf-8'},
+            verify=False
+        )
+        doc = minidom.parseString(out.text)
+        for l in doc.getElementsByTagName("FileLocation"):
+            url = l.getElementsByTagName("Url")[0].firstChild.nodeValue
+            if len(url) != 99:
+                print(f"download link: {url} to {out_file}", flush=True)
+                tmpdownlist.writelines(url + '\n')
+                tmpdownlist.writelines(f'  dir={download_dir}\n')
+                tmpdownlist.writelines(f'  out={out_file_name}\n')
+    tmpdownlist.writelines(f'https://aka.ms/Microsoft.VCLibs.{arch}.14.00.Desktop.appx\n')
+    tmpdownlist.writelines(f'  dir={download_dir}\n')
